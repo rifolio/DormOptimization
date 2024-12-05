@@ -1,43 +1,66 @@
 from pylatex import Document, LongTable, NoEscape
 from datetime import datetime, timedelta
 
-def generate_pdf_table(num_rooms, start_date, num_days, output_filename):
-    # Generates a PDF file with a table that maps room numbers to corresponding dates for given number of days and initial date
-
-    # getting the start date
+def generate_pdf_table(corpus, floor, number_after_corpus, num_rooms, your_room_number, username, start_date, num_days):
+    # generates a PDF file with a table that maps room numbers to corresponding dates and residents
+    
+    # parsing the start date
     start_date = datetime.strptime(start_date, '%d.%m.%Y')
     
-    # gettin ready the document
+    # preparing the document
     doc = Document()
     doc.preamble.append(NoEscape(r'\usepackage[table,xcdraw]{xcolor}'))
     doc.preamble.append(NoEscape(r'\usepackage{longtable}'))
 
-    # Just some basic info on top of the table, optional
-    # doc.append(NoEscape(r'Schedule'))
-    # doc.append(NoEscape(r'\vspace{10pt}'))  # Add spacing after the text
-
-    # LongTable in case we have more than 30 days
-    with doc.create(LongTable(r'|p{0.3\textwidth}|p{0.6\textwidth}|p{0.1\textwidth}|')) as table:
+    # creating a longtable for multi-page support
+    with doc.create(LongTable(r'|p{0.25\textwidth}|p{0.5\textwidth}|p{0.1\textwidth}|p{0.15\textwidth}|')) as table:
         table.add_hline()
-        table.add_row(["Room Number", "Date (Day of the Week, dd.mm.yy)", "Checkin"])
+        table.add_row(["Room Number", "Date (Day of the Week, dd.mm.yy)", "Checkin", "Residents"])
         table.add_hline()
         table.end_table_header()
         
         # adding table rows
         for i in range(num_days):
-            room_number = f"3D.1.0{(i % num_rooms) + 1}"
+            # calculating the room number
+            room_number_index = (i % num_rooms) + 1
+            room_number = (
+                f"{corpus}.{floor}.{number_after_corpus}{room_number_index}"
+                if room_number_index < 10
+                else f"{corpus}.{floor}.{room_number_index}"
+            )
+            
+            # checking if the current room is the user's room
+            resident = username if room_number_index == your_room_number else ""
+            
+            # formatting the date with alignment
             current_date = start_date + timedelta(days=i)
             day_of_week = current_date.strftime('%A')
             date = current_date.strftime('%d.%m.%Y')
-            
-            # to make it more pretty using \hfill to push the date to the right border inside the column
             formatted_date = NoEscape(f"{day_of_week}\\hfill{date}")
             
-            table.add_row([room_number, formatted_date, ""])
+            # adding a row to the table
+            table.add_row([room_number, formatted_date, "", resident])
             table.add_hline()
 
-    # generate PDF
-    doc.generate_pdf(output_filename, clean_tex=False)
+    # setting the output file name dynamically
+    output_filename = f"Schedule/schedule_for_{corpus}.{floor}.pdf"
 
-# testing method
-generate_pdf_table(num_rooms=13, start_date='05.12.2024', num_days=60, output_filename='room_schedule')
+    # generating the PDF
+    try:
+        doc.generate_pdf(output_filename, clean_tex=False)
+    except Exception as e:
+        print("Error generating PDF.")
+        if hasattr(e, "output"):
+            print(e.output.decode("utf-8"))  # display the LaTeX error output
+
+# testing the method with inputs
+generate_pdf_table(
+    corpus="1F", 
+    floor="3", 
+    number_after_corpus="0", 
+    num_rooms=15, 
+    your_room_number=6, 
+    username="rifo", 
+    start_date='05.12.2024', 
+    num_days=26
+)
