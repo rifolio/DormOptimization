@@ -116,8 +116,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Welcome to the Dorm Management Bot! Let's set up your room schedule.\n\n"
-        "Please select the corpus:",
+        "Ласкаво просимо до бота управління гуртожитком! Давайте налаштуємо ваш графік.\n\n"
+        "Будь ласка, виберіть корпус:",
         reply_markup=reply_markup
     )
     return CORPUS
@@ -130,7 +130,7 @@ async def get_corpus(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     # Respond without deleting the previous message
     await query.message.reply_text(
-        f"You selected corpus: {corpus_selected}."
+        f"Ви вибрали корпус: {corpus_selected}."
     )
 
     keyboard = [
@@ -139,7 +139,7 @@ async def get_corpus(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         [InlineKeyboardButton("2", callback_data='2')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text("Now, enter the floor number:", reply_markup=reply_markup)
+    await query.message.reply_text("Тепер виберіть номер поверху:", reply_markup=reply_markup)
     return FLOOR
 
 async def get_floor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -150,14 +150,14 @@ async def get_floor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     # Respond without deleting the previous message
     await query.message.reply_text(
-        f"You selected floor number: {floor_selected}. How many rooms are on this floor?"
+        f"Ви вибрали поверх номер: {floor_selected}. Скільки кімнат на цьому поверсі?"
     )
     return NUM_ROOMS
 
 async def get_num_rooms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     num_rooms_text = update.message.text.strip()
     if not num_rooms_text.isdigit() or int(num_rooms_text) <= 0:
-        await update.message.reply_text("Please enter a valid number of rooms.")
+        await update.message.reply_text("Будь ласка, введіть дійсну кількість кімнат.")
         return NUM_ROOMS
     
     context.user_data["num_rooms"] = int(num_rooms_text)
@@ -170,7 +170,7 @@ async def get_num_rooms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         keyboard.append(row)
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Which room number is yours?", reply_markup=reply_markup)
+    await update.message.reply_text("Який номер вашої кімнати?", reply_markup=reply_markup)
     return USER_ROOM
 
 async def get_user_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -181,32 +181,43 @@ async def get_user_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     # Continue the conversation without deleting the previous message
     await query.message.reply_text(
-        f"You selected room number: {selected_room}. What is your name?"
+        f"Ви вибрали номер кімнати: {selected_room}. Як вас звати?"
     )
     return USER_NAME
 
 async def get_user_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["username"] = update.message.text
-    await update.message.reply_text("How many days ahead would you like to generate the schedule for?")
+    await update.message.reply_text("На скільки днів уперед ви хочете створити графік?")
     return DAYS_AHEAD
 
 async def get_days_ahead(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["num_days"] = int(update.message.text)
     user_data = context.user_data
     await update.message.reply_text(
-        f"Thank you! Here is the information you provided:\n"
-        f"- Corpus: {user_data['corpus']}\n"
-        f"- Floor: {user_data['floor']}\n"
-        f"- Number of Rooms: {user_data['num_rooms']}\n"
-        f"- Your Room: {user_data['your_room_number']}\n"
-        f"- Your Name: {user_data['username']}\n"
-        f"- Days Ahead: {user_data['num_days']}\n\n"
-        "Press the button below to generate your schedule PDF."
+        f"Дякуємо! Ось інформація, яку ви надали:\n"
+        f"- Корпус: {user_data['corpus']}\n"
+        f"- Поверх: {user_data['floor']}\n"
+        f"- Кількість кімнат: {user_data['num_rooms']}\n"
+        f"- Ваша кімната: {user_data['your_room_number']}\n"
+        f"- Ваше ім'я: {user_data['username']}\n"
+        f"- Днів уперед: {user_data['num_days']}\n\n"
+        "Натисніть кнопку нижче, щоб створити PDF-файл вашого графіка."
     )
-    keyboard = [[InlineKeyboardButton("Generate Schedule", callback_data='generate_schedule')]]
+    keyboard = [[InlineKeyboardButton("Створити графік", callback_data='generate_schedule')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Confirm your schedule generation:", reply_markup=reply_markup)
+    await update.message.reply_text("Підтвердьте створення графіка:", reply_markup=reply_markup)
     return CONFIRMATION
+
+async def send_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await send_pdf(query, context)
+
+    # Send final message giving user the option to restart
+    await query.message.reply_text(
+        "Якщо ви хочете розпочати знову, введіть /start."
+    )
+    return ConversationHandler.END
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -235,26 +246,15 @@ async def generate_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data["pdf_file"] = pdf_file
         logging.info(f"PDF file generated and stored: {pdf_file}")
 
-        keyboard = [[InlineKeyboardButton("Send PDF", callback_data='send_pdf')]]
+        keyboard = [[InlineKeyboardButton("Надіслати PDF-файл", callback_data='send_pdf')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "Your schedule has been generated! Press the button below to receive the PDF file.",
+            "Ваш розклад створено! Натисніть кнопку нижче, щоб отримати PDF-файл.",
             reply_markup=reply_markup
         )
     except Exception as e:
         logging.error(f"Error generating the PDF: {str(e)}")
         await update.message.reply_text("An error occurred while generating the PDF. Please try again.")
-
-async def send_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    await send_pdf(query, context)
-
-    # Send final message giving user the option to restart
-    await query.message.reply_text(
-        "If you want to start the process again, type /start."
-    )
-    return ConversationHandler.END
 
 async def send_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -277,7 +277,7 @@ async def send_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_document(
                 file,
                 filename=os.path.basename(f'{pdf_file}'),
-                caption="Here is your room schedule. Let us know if you need further assistance!"
+                caption="Ось розклад вашої кімнати. Повідомте нас, якщо вам потрібна додаткова допомога!"
             )
             logging.info(f"PDF file sent successfully: {pdf_file}")
     except Exception as e:
@@ -285,7 +285,7 @@ async def send_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("An error occurred while sending the PDF.")
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Process canceled. Goodbye!")
+    await update.message.reply_text("Процес скасовано. До побачення!")
     return ConversationHandler.END
 
 def main():
