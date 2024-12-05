@@ -76,7 +76,7 @@ def generate_pdf_table(corpus, floor, number_after_corpus, num_rooms, your_room_
     doc.append(NoEscape(r'\end{center}'))
 
     # setting the output file name dynamically
-    output_filename = f"Schedule/schedule_for_{corpus}_{floor}.pdf"
+    output_filename = f"Schedule/schedule_for_{corpus}_{floor}"
 
     # generating the PDF
     try:
