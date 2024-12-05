@@ -3,3 +3,6 @@ venv/
 .DS_Store
 __pycache__
 .env
+bot_test.py
+bot.py
+new_main.py
