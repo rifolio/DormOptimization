@@ -55,12 +55,12 @@ def generate_pdf_table(corpus, floor, number_after_corpus, num_rooms, your_room_
 
 # testing the method with inputs
 generate_pdf_table(
-    corpus="1F", 
-    floor="3", 
+    corpus="3D", 
+    floor="2", 
     number_after_corpus="0", 
-    num_rooms=15, 
-    your_room_number=6, 
-    username="rifo", 
+    num_rooms=13, 
+    your_room_number=4, 
+    username="Vlad,Dmytro", 
     start_date='05.12.2024', 
-    num_days=26
+    num_days=720
 )
