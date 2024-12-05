@@ -36,7 +36,7 @@ def generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_dat
     logging.info(f"Generating PDF file: {output_filename}")
 
     # getting holidays using the holidays library
-    dk_holidays = holidays.CountryHoliday('DK', years=[2024, 2025])
+    # dk_holidays = holidays.CountryHoliday('DK', years=[2024, 2025])
 
     # parsing the start date
     start_date = datetime.strptime(start_date, '%d.%m.%Y')
@@ -56,7 +56,7 @@ def generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_dat
 
     # centering the table itself
     doc.append(NoEscape(r'\begin{center}'))
-    doc.append(NoEscape(r'Kitchen Cleaning for December'))
+    doc.append(NoEscape(r'Kitchen Cleaning Schedule'))
 
     # creating a longtable for multi-page support
     with doc.create(LongTable(r'|p{0.3\textwidth}|p{0.55\textwidth}|p{0.15\textwidth}|')) as table:
@@ -72,14 +72,14 @@ def generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_dat
             # calculating the current date
             current_date = start_date + timedelta(days=i)
 
-            # check if the current date is a holiday
-            if current_date in dk_holidays:
-                holiday_name = dk_holidays.get(current_date)
-                # add a row for holidays with the holiday name
-                holidate = NoEscape(f"{current_date.strftime('%A')} \\hfill {current_date.strftime('%d.%m.%Y')}")
-                table.add_row([holiday_name, holidate, ""])
-                table.add_hline()
-                continue
+            # # check if the current date is a holiday
+            # if current_date in dk_holidays:
+            #     holiday_name = dk_holidays.get(current_date)
+            #     # add a row for holidays with the holiday name
+            #     holidate = NoEscape(f"{current_date.strftime('%A')} \\hfill {current_date.strftime('%d.%m.%Y')}")
+            #     table.add_row([holiday_name, holidate, ""])
+            #     table.add_hline()
+            #     continue
 
             # calculating the room number
             room_number = (
@@ -107,72 +107,30 @@ def generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_dat
     doc.generate_pdf(output_filename, clean_tex=False)
     return output_filename
 
-async def send_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Sends the generated PDF file after it's been created.
-    """
-    user_data = context.user_data
-    pdf_file = user_data.get("pdf_file", None)
-
-    if not pdf_file:
-        await update.message.reply_text("Error: No schedule PDF has been generated yet. Please press the 'Generate Schedule' button to create it.")
-        return
-    
-    pdf_file = f'{pdf_file}.pdf'
-
-    # Log the file being sent
-    logging.info(f"Attempting to send file: {pdf_file}")
-
-    try:
-        with open(pdf_file, 'rb') as file:
-            await update.message.reply_document(
-                file,
-                filename=os.path.basename(f'{pdf_file}'),
-                caption="Here is your room schedule. Let us know if you need further assistance!"
-            )
-            logging.info(f"PDF file sent successfully: {pdf_file}")
-    except Exception as e:
-        logging.error(f"Error while sending the PDF: {str(e)}")
-        await update.message.reply_text("An error occurred while sending the PDF.")
-
-async def generate_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Generate a PDF schedule based on user data after all info has been collected.
-    """
-    user_data = context.user_data
-    start_date = datetime.now().replace(day=1).strftime('%d.%m.%Y')
-    num_days = user_data["num_days"]
-    corpus = user_data["corpus"]
-    floor = user_data["floor"]
-    num_rooms = user_data["num_rooms"]
-    your_room_number = user_data["your_room_number"]
-    username = user_data["username"]
-
-    try:
-        # Generate the PDF file using a relative path
-        pdf_file = generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_date, num_days)
-
-        # Store the generated PDF file path in user_data for later use
-        user_data["pdf_file"] = pdf_file
-        logging.info(f"PDF file generated and stored: {pdf_file}")
-
-        keyboard = [[InlineKeyboardButton("Send PDF", callback_data='send_pdf')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Your schedule has been generated! Press the button below to receive the PDF file.", reply_markup=reply_markup)
-    except Exception as e:
-        logging.error(f"Error generating the PDF: {str(e)}")
-        await update.message.reply_text("An error occurred while generating the PDF. Please try again.")
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    keyboard = [
+        ["1A", "1B", "1C", "1D"],
+        ["2A", "2B", "2C", "2D"],
+        ["3A", "3B", "3C", "3D"],
+        ["4A", "4B", "4C", "4D"],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text(
         "Welcome to the Dorm Management Bot! Let's set up your room schedule.\n\n"
-        "Please provide the corpus (e.g., 3D):"
+        "Please select the corpus:",
+        reply_markup=reply_markup
     )
     return CORPUS
 
 async def get_corpus(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["corpus"] = update.message.text
-    await update.message.reply_text("Great! Now, enter the floor number:")
+    keyboard = [
+        ["0"],
+        ["1"],
+        ["2"],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Great! Now, enter the floor number:", reply_markup=reply_markup)
     return FLOOR
 
 async def get_floor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -182,12 +140,21 @@ async def get_floor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def get_num_rooms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["num_rooms"] = int(update.message.text)
-    await update.message.reply_text("Which room number is yours?")
+    num_rooms = context.user_data["num_rooms"]
+    keyboard = []
+    for i in range(1, num_rooms + 1, 3):
+        row = [InlineKeyboardButton(str(j), callback_data=str(j)) for j in range(i, min(i + 3, num_rooms + 1))]
+        keyboard.append(row)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Which room number is yours?", reply_markup=reply_markup)
     return USER_ROOM
 
 async def get_user_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data["your_room_number"] = int(update.message.text)
-    await update.message.reply_text("What is your name?")
+    query = update.callback_query
+    await query.answer()
+    context.user_data["your_room_number"] = int(query.data)
+    await query.edit_message_text(text=f"You selected room number: {query.data}")
+    await query.message.reply_text("What is your name?")
     return USER_NAME
 
 async def get_user_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -219,11 +186,67 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await generate_schedule(query, context)
     return CONFIRMATION
 
+async def generate_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Generate a PDF schedule based on user data after all info has been collected.
+    """
+    user_data = context.user_data
+    start_date = datetime.now().replace(day=1).strftime('%d.%m.%Y')
+    num_days = user_data["num_days"]
+    corpus = user_data["corpus"]
+    floor = user_data["floor"]
+    num_rooms = user_data["num_rooms"]
+    your_room_number = user_data["your_room_number"]
+    username = user_data["username"]
+
+    try:
+        # Generate the PDF file using a relative path
+        pdf_file = generate_pdf(corpus, floor, num_rooms, your_room_number, username, start_date, num_days)
+
+        # Store the generated PDF file path in user_data for later use
+        user_data["pdf_file"] = pdf_file
+        logging.info(f"PDF file generated and stored: {pdf_file}")
+
+        keyboard = [[InlineKeyboardButton("Send PDF", callback_data='send_pdf')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Your schedule has been generated! Press the button below to receive the PDF file.", reply_markup=reply_markup)
+    except Exception as e:
+        logging.error(f"Error generating the PDF: {str(e)}")
+        await update.message.reply_text("An error occurred while generating the PDF. Please try again.")
+
 async def send_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     await send_pdf(query, context)
     return CONFIRMATION
+
+async def send_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Sends the generated PDF file after it's been created.
+    """
+    user_data = context.user_data
+    pdf_file = user_data.get("pdf_file", None)
+
+    if not pdf_file:
+        await update.message.reply_text("Error: No schedule PDF has been generated yet. Please press the 'Generate Schedule' button to create it.")
+        return
+    
+    pdf_file = f'{pdf_file}.pdf'
+
+    # Log the file being sent
+    logging.info(f"Attempting to send file: {pdf_file}")
+
+    try:
+        with open(pdf_file, 'rb') as file:
+            await update.message.reply_document(
+                file,
+                filename=os.path.basename(f'{pdf_file}'),
+                caption="Here is your room schedule. Let us know if you need further assistance!"
+            )
+            logging.info(f"PDF file sent successfully: {pdf_file}")
+    except Exception as e:
+        logging.error(f"Error while sending the PDF: {str(e)}")
+        await update.message.reply_text("An error occurred while sending the PDF.")
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Process canceled. Goodbye!")
@@ -238,7 +261,7 @@ def main():
             CORPUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_corpus)],
             FLOOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_floor)],
             NUM_ROOMS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_num_rooms)],
-            USER_ROOM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_user_room)],
+            USER_ROOM: [CallbackQueryHandler(get_user_room)],
             USER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_user_name)],
             DAYS_AHEAD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_days_ahead)],
             CONFIRMATION: [
